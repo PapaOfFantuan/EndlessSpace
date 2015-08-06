@@ -1,0 +1,140 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ebin -pa kernel_ebin  
+%% 编译指定模块(单个或多个)
+%-mode(native).
+-define(EXIT(Code), init:stop(Code)).
+-define(NONE, none).
+
+%% 编译选项
+-define(COMPILE_OPT, 
+    [
+ 	{i, "include"},
+  	{outdir, "ebin"},
+	inline,
+	report,
+%	warnings_as_errors,
+%	warn_export_all,
+%	warn_export_vars,
+%	warn_shadow_vars,
+%	warn_obsolete_guard,
+%	warn_unused_import,
+%	warn_unused_records,
+	verbose
+    ]
+    ).
+
+-define(FILE_INDEX,"cfile_index").
+
+-record(params,{mods = [],debug}).
+%% 入口
+main([]) ->
+    usage(),
+    ?EXIT(0);
+main(Args) ->
+    code:add_path(filename:join([root_dir(), "ebin"])),
+    Params = #params{mods = Mods} = parse_params(Args,#params{}),
+    Opts = get_opts(Params),
+    Cache = 
+    case catch file:consult(?FILE_INDEX) of
+      {ok,L} ->
+        L;
+      _ ->
+        []
+    end,
+    [
+    case catch find_file(Mod,Cache) of
+      ?NONE ->
+        io:format("错误:在代码中无法找到模块:~s\n", [Mod]),
+        ?EXIT(1);
+      {ok, FilePath} ->
+        %io:format("编译文件:~s\n", [FilePath]),
+        compile_file(FilePath,Opts)
+    end || Mod <- Mods],
+    ok.
+
+parse_params([],#params{mods = Mods} = R)->
+  R#params{mods = lists:reverse(Mods)};
+parse_params(["-d" | T],R)->
+  parse_params(T,R#params{debug = true});
+parse_params([H | T],R = #params{mods = Mods})->
+  parse_params(T,R#params{mods = [H | Mods]}).
+
+
+get_opts(#params{debug = true})->
+  [debug_info | ?COMPILE_OPT];
+get_opts(_Params)->
+  ?COMPILE_OPT.
+
+
+%% 用法
+usage() ->
+    ScriptName = escript:script_name(),
+    io:format(
+"用法:
+ ~s 模块 模块 ...
+比如:
+ ~s mod_player mod_goods lib_goods
+ 编译mod_player, mod_goods, lib_goods三个模块
+", [ScriptName, ScriptName]).
+
+%% 在代码中查找某个模块
+find_file(Mod,Cache) ->
+    {ModName,FileName} =
+    case filename:extension(Mod) of
+        "" ->
+            {Mod,Mod ++ ".erl"};
+        ".erl" ->
+            {filename:basename(Mod,".erl"),Mod}
+    end,
+    case lists:keyfind(ModName,1,Cache) of
+      false ->
+        skip;
+      {_,Path}->
+        throw({ok,Path})
+    end,
+    % 寻找模块
+    Root = root_dir(),
+    %io:format("root路径:~s\n", [Root]),
+    [begin
+	%io:format("path:~p",[FindPath]),
+        case filelib:wildcard(FindPath) of
+            [] ->
+                ok;
+            [File] ->
+                file:write_file(?FILE_INDEX,io_lib:format("{~p,\"~s\"}.~n",[ModName,File]),[append]),
+                throw({ok, File});
+            [File | T] ->
+                io:format("编译:~s,找到多余文件:~p",[File,T]),
+                throw({ok, File})
+        end
+    end || FindPath <- 
+	[filename:join([Root,"src",FileName]),
+	filename:join([Root, "src", "*", FileName]),
+	filename:join([Root, "src", "*", "*", FileName])
+    ]],
+    ?NONE.
+
+%% 编译文件
+compile_file(FilePath,Opts) ->
+%    io:format("编译选项:~p~n", [Opts]),
+    case compile:file(FilePath, Opts) of
+        {ok, _Data} ->
+            io:format("编译成功:~p!~n", [_Data]);
+        {ok, _, Warnings} ->
+            io:format("编译成功!~n"),
+            io:fromat("警告:~n~p~n", [Warnings]);
+        error ->
+            io:format("编译失败!~n"),
+            ?EXIT(1);
+        {error, Errors, Warnings} ->
+            io:format("编译失败!~n"),
+            io:fromat("错误:~n~p~n", [Errors]),
+            io:fromat("警告:~n~p~n", [Warnings]),
+            ?EXIT(1)
+    end.
+
+%% 获取root dir
+root_dir() ->
+    Path = escript:script_name(),
+    filename:dirname(filename:dirname(filename:dirname(Path))).

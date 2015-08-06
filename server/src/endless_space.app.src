@@ -1,0 +1,14 @@
+{application, endless_space,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+				  sasl,
+				  cowboy
+                 ]},
+  {mod, { endless_space_app, []}},
+  {env, []}
+ ]}.

@@ -1,0 +1,11 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+main(_Args)->
+	Cmd = lists:foldl(
+		fun(Dir,AccIn)->
+			AccIn ++ " " ++ Dir	
+		end,"",["ebin" | filelib:wildcard("deps/*/ebin")]),
+	[_ | Cmd1 ] = Cmd, 
+	%io:format("~s",[Cmd1]),
+	io:format("~s",[os:cmd("bash start.sh " ++ Cmd1)]).

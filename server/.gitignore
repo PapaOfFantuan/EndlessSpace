@@ -1,0 +1,7 @@
+.rebar
+deps
+ebin
+tags
+erl_crash.dump
+cfile_index
+rel
