@@ -1,13 +1,11 @@
 <html>
 <body>
+<script src="json2.js"></script>
+<script src="endless_space_network.js"></script>
+<script src="endless_space.js"></script>
 <script>
-	var ws = new WebSocket("ws://10.0.0.101:8080/ws/");
-	ws.onopen = function(){
-		ws.send("asdjfl;asdfk;asdk;fjskl;adjfl;askjdfl;jasdl;fjl;asdfjl;asdl;fl;sdjfl;asjdfl;asl;dfj;alsdjf;lasjdfl;kasjf;lasdjklf");
-	};
-	ws.onmessage = function(evt){
-		ws.send(evt.data);
-	};
+	endless_space.init();
+	endless_space.render();
 </script>
 </body>
 </html>
